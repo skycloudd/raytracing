@@ -10,9 +10,9 @@ const FOCAL_LENGTH: f32 = 1.0;
 const VIEWPORT_HEIGHT: f32 = 2.0;
 
 fn main() {
-    let mut img = DynamicImage::new_rgb8(IMAGE_WIDTH, IMAGE_HEIGHT);
+    let image = DynamicImage::new_rgb8(IMAGE_WIDTH, IMAGE_HEIGHT);
 
-    let camera = Camera::new(IMAGE_WIDTH, IMAGE_HEIGHT, FOCAL_LENGTH, VIEWPORT_HEIGHT);
+    let mut camera = Camera::new(image, FOCAL_LENGTH, VIEWPORT_HEIGHT);
 
     let mut world = hittable::List::new();
 
@@ -22,7 +22,7 @@ fn main() {
         100.,
     )));
 
-    camera.render(&mut img, &world);
+    camera.render(&world);
 
-    img.save("output.png").unwrap();
+    camera.image().save("output.png").unwrap();
 }
