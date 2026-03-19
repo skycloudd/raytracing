@@ -2,17 +2,14 @@ use glam::Vec3;
 use image::DynamicImage;
 use raytracer::{camera::Camera, hittable};
 
-const ASPECT_RATIO: f32 = 16. / 9.;
-const IMAGE_WIDTH: u32 = 400;
-const IMAGE_HEIGHT: u32 = (IMAGE_WIDTH as f32 / ASPECT_RATIO).max(1.) as u32;
-
-const FOCAL_LENGTH: f32 = 1.0;
-const VIEWPORT_HEIGHT: f32 = 2.0;
-
 fn main() {
-    let image = DynamicImage::new_rgb8(IMAGE_WIDTH, IMAGE_HEIGHT);
+    let aspect_ratio = 16. / 9.;
+    let image_width: u32 = 800;
+    let image_height: u32 = (image_width as f32 / aspect_ratio).max(1.) as u32;
 
-    let mut camera = Camera::new(image, FOCAL_LENGTH, VIEWPORT_HEIGHT);
+    let image = DynamicImage::new_rgb8(image_width, image_height);
+
+    let mut camera = Camera::new(image);
 
     let mut world = hittable::List::new();
 

@@ -1,4 +1,4 @@
-use crate::{hittable::Hittable, ray::Ray};
+use crate::{hittable::Hittable, interval::Interval, ray::Ray};
 use color::{OpaqueColor, Srgb};
 use glam::Vec3;
 use image::{DynamicImage, GenericImage as _, Rgba};
@@ -15,7 +15,10 @@ pub struct Camera {
 
 impl Camera {
     #[must_use]
-    pub fn new(image: DynamicImage, focal_length: f32, viewport_height: f32) -> Self {
+    pub fn new(image: DynamicImage) -> Self {
+        let focal_length = 1.0;
+        let viewport_height = 2.0;
+
         let viewport_width = viewport_height * (image.width() as f32 / image.height() as f32);
 
         let camera_center = Vec3::ZERO;
@@ -64,16 +67,18 @@ impl Camera {
 }
 
 fn ray_color(ray: Ray, world: &dyn Hittable) -> OpaqueColor<Srgb> {
-    world.hit(ray, 0., f32::INFINITY).map_or_else(
-        || skybox(ray),
-        |hit_rec| {
-            0.5 * OpaqueColor::new([
-                hit_rec.normal().x + 1.,
-                hit_rec.normal().y + 1.,
-                hit_rec.normal().z + 1.,
-            ])
-        },
-    )
+    world
+        .hit(ray, Interval::new(0., f32::INFINITY))
+        .map_or_else(
+            || skybox(ray),
+            |hit_rec| {
+                0.5 * OpaqueColor::new([
+                    hit_rec.normal().x + 1.,
+                    hit_rec.normal().y + 1.,
+                    hit_rec.normal().z + 1.,
+                ])
+            },
+        )
 }
 
 fn skybox(ray: Ray) -> OpaqueColor<Srgb> {

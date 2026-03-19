@@ -1,4 +1,4 @@
-use crate::ray::Ray;
+use crate::{interval::Interval, ray::Ray};
 use core::fmt::Debug;
 use glam::Vec3;
 
@@ -9,7 +9,7 @@ pub use list::List;
 pub use sphere::Sphere;
 
 pub trait Hittable: Debug {
-    fn hit(&self, ray: Ray, ray_tmin: f32, ray_tmax: f32) -> Option<HitRecord>;
+    fn hit(&self, ray: Ray, ray_t: Interval) -> Option<HitRecord>;
 }
 
 #[derive(Debug)]
