@@ -44,6 +44,11 @@ impl HitRecord {
     }
 
     #[must_use]
+    pub const fn point(&self) -> Vec3 {
+        self.point
+    }
+
+    #[must_use]
     pub const fn normal(&self) -> Vec3 {
         self.normal
     }

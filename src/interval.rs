@@ -24,6 +24,14 @@ impl Interval {
         self.min < x && x < self.max
     }
 
+    pub fn clamp(&self, x: f32) -> f32 {
+        match x {
+            x if x < self.min => self.min,
+            x if x > self.max => self.max,
+            x => x,
+        }
+    }
+
     pub const fn min(&self) -> f32 {
         self.min
     }

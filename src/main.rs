@@ -4,7 +4,7 @@ use raytracer::{camera::Camera, hittable};
 
 fn main() {
     let aspect_ratio = 16. / 9.;
-    let image_width: u32 = 800;
+    let image_width: u32 = 400;
     let image_height: u32 = (image_width as f32 / aspect_ratio).max(1.) as u32;
 
     let image = DynamicImage::new_rgb8(image_width, image_height);
