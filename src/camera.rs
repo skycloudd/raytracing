@@ -1,7 +1,7 @@
-use crate::{hittable::Hittable, interval::Interval, ray::Ray};
-use color::{HueDirection, OpaqueColor, Srgb};
-use glam::{Vec2, Vec3};
-use image::{DynamicImage, GenericImage as _, Pixel, Rgba};
+use crate::{hittable::Hittable, interval::Interval, random::random_unit_square, ray::Ray};
+use color::{OpaqueColor, Srgb};
+use glam::Vec3;
+use image::{DynamicImage, GenericImage as _, Rgba};
 use indicatif::ProgressIterator as _;
 
 #[derive(Debug)]
@@ -11,7 +11,7 @@ pub struct Camera {
     pixel_delta_u: Vec3,
     pixel_delta_v: Vec3,
     pixel00_loc: Vec3,
-    samples_per_pixel_sqrt: u32,
+    samples_per_pixel: u32,
     max_depth: u32,
 }
 
@@ -20,8 +20,8 @@ impl Camera {
     pub fn new(image: DynamicImage) -> Self {
         let focal_length = 1.0;
         let viewport_height = 2.0;
-        let samples_per_pixel_sqrt = 10;
-        let max_depth = 50;
+        let samples_per_pixel = 100;
+        let max_depth = 100;
 
         let viewport_width = viewport_height * (image.width() as f32 / image.height() as f32);
 
@@ -44,7 +44,7 @@ impl Camera {
             pixel_delta_u,
             pixel_delta_v,
             pixel00_loc,
-            samples_per_pixel_sqrt,
+            samples_per_pixel,
             max_depth,
         }
     }
@@ -52,37 +52,34 @@ impl Camera {
     pub fn render(&mut self, world: &dyn Hittable) {
         for y in (0..self.image.height()).progress() {
             for x in 0..self.image.width() {
-                let mut pixel_color: Option<OpaqueColor<Srgb>> = None;
+                let mut pixel_color: [f32; 3] = [0.0, 0.0, 0.0];
 
-                for n in 0..(self.samples_per_pixel_sqrt * self.samples_per_pixel_sqrt) {
-                    let sample = Sample::new(n, self.samples_per_pixel_sqrt);
+                for _ in 0..(self.samples_per_pixel) {
+                    let ray = self.get_ray(x as f32, y as f32);
+                    let ray_color = ray_color(&ray, self.max_depth, world);
 
-                    let ray = self.get_ray(x as f32, y as f32, sample);
-                    let ray_color = ray_color(ray, self.max_depth, world);
-
-                    pixel_color = Some(pixel_color.map_or_else(
-                        || ray_color,
-                        |pixel_color| pixel_color.lerp(ray_color, 0.5, HueDirection::default()),
-                    ));
+                    pixel_color = add_colors(pixel_color, ray_color.components);
                 }
 
                 self.image.put_pixel(
                     x,
                     y,
                     Rgba::from(
-                        pixel_color
-                            .unwrap()
-                            .map(|x, y, z| [x, y, z].map(linear_to_gamma))
-                            .to_rgba8()
-                            .to_u8_array(),
+                        OpaqueColor::<Srgb>::new(
+                            pixel_color
+                                .map(|x| x / self.samples_per_pixel as f32)
+                                .map(linear_to_gamma),
+                        )
+                        .to_rgba8()
+                        .to_u8_array(),
                     ),
                 );
             }
         }
     }
 
-    fn get_ray(&self, i: f32, j: f32, sample: Sample) -> Ray {
-        let offset = sample_square(sample);
+    fn get_ray(&self, i: f32, j: f32) -> Ray {
+        let offset = random_unit_square();
 
         let pixel_sample = self.pixel00_loc
             + ((i + offset.x) * self.pixel_delta_u)
@@ -100,19 +97,7 @@ impl Camera {
     }
 }
 
-#[derive(Clone, Copy)]
-struct Sample {
-    n: u32,
-    total_sqrt: u32,
-}
-
-impl Sample {
-    const fn new(n: u32, total_sqrt: u32) -> Self {
-        Self { n, total_sqrt }
-    }
-}
-
-fn ray_color(ray: Ray, depth: u32, world: &dyn Hittable) -> OpaqueColor<Srgb> {
+fn ray_color(ray: &Ray, depth: u32, world: &dyn Hittable) -> OpaqueColor<Srgb> {
     if depth == 0 {
         return OpaqueColor::BLACK;
     }
@@ -121,12 +106,12 @@ fn ray_color(ray: Ray, depth: u32, world: &dyn Hittable) -> OpaqueColor<Srgb> {
         .hit(ray, Interval::new(0.001, f32::INFINITY))
         .map_or_else(
             || skybox(ray),
-            |hit_rec| {
-                0.5 * ray_color(
-                    Ray::new(hit_rec.point(), hit_rec.normal()),
-                    depth - 1,
-                    world,
-                )
+            |hit_rec| match hit_rec.material().scatter(ray, &hit_rec) {
+                Some((scattered, attenuation)) => OpaqueColor::new(multiply_colors(
+                    attenuation.components,
+                    ray_color(&scattered, depth - 1, world).components,
+                )),
+                None => OpaqueColor::BLACK,
             },
         )
 }
@@ -138,18 +123,16 @@ fn linear_to_gamma(x: f32) -> f32 {
     }
 }
 
-fn skybox(ray: Ray) -> OpaqueColor<Srgb> {
+fn skybox(ray: &Ray) -> OpaqueColor<Srgb> {
     let unit_direction = ray.direction().normalize();
     let a = 0.5 * (unit_direction.y + 1.0);
-    (1.0 - a) * OpaqueColor::WHITE + a * OpaqueColor::new([0.5, 0.7, 1.0])
+    (1.0 - a) * OpaqueColor::WHITE + a * OpaqueColor::new([0.3, 0.5, 1.0])
 }
 
-const fn sample_square(sample: Sample) -> Vec2 {
-    let x = sample.n % sample.total_sqrt;
-    let y = sample.n / sample.total_sqrt;
+fn add_colors(x: [f32; 3], y: [f32; 3]) -> [f32; 3] {
+    [x[0] + y[0], x[1] + y[1], x[2] + y[2]]
+}
 
-    Vec2::new(
-        (x as f32) / sample.total_sqrt as f32 + 0.5,
-        (y as f32) / sample.total_sqrt as f32 + 0.5,
-    )
+fn multiply_colors(x: [f32; 3], y: [f32; 3]) -> [f32; 3] {
+    [x[0] * y[0], x[1] * y[1], x[2] * y[2]]
 }

@@ -8,6 +8,7 @@ color = "0.3.2"
 glam = "0.32.1"
 image = "0.25.10"
 indicatif = "0.18.4"
+rand = "0.10.0"
 
 [lints.rust]
 missing_debug_implementations = "warn"
