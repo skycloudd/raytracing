@@ -1,4 +1,9 @@
-use crate::{hittable::Hittable, interval::Interval, random::random_unit_square, ray::Ray};
+use crate::{
+    hittable::Hittable,
+    interval::Interval,
+    random::{random_in_unit_disk, random_unit_square},
+    ray::Ray,
+};
 use color::{OpaqueColor, Srgb};
 use glam::Vec3;
 use image::{DynamicImage, GenericImage as _, Rgba};
@@ -13,34 +18,42 @@ pub struct Camera {
     pixel00_loc: Vec3,
     samples_per_pixel: u32,
     max_depth: u32,
+    defocus_angle: f32,
+    defocus_disk_u: Vec3,
+    defocus_disk_v: Vec3,
 }
 
 impl Camera {
     #[must_use]
-    pub fn new(image: DynamicImage) -> Self {
-        let vfov: f32 = 90.0;
-        let focal_length = 1.0;
-        let samples_per_pixel = 100;
-        let max_depth = 50;
-
-        let theta = vfov.to_radians();
+    pub fn new(image: DynamicImage, config: CameraConfig) -> Self {
+        let theta = config.vfov.to_radians();
         let h = (theta / 2.0).tan();
-        let viewport_height = 2.0 * h * focal_length;
+        let viewport_height = 2.0 * h * config.focus_distance;
 
         let viewport_width = viewport_height * (image.width() as f32 / image.height() as f32);
 
-        let camera_center = Vec3::ZERO;
+        let camera_center = config.look_from;
 
-        let viewport_u = Vec3::ZERO.with_x(viewport_width);
-        let viewport_v = Vec3::ZERO.with_y(-viewport_height);
+        let w = (config.look_from - config.look_at).normalize();
+        let u = config.v_up.cross(w).normalize();
+        let v = w.cross(u);
+
+        let viewport_u = viewport_width * u;
+        let viewport_v = viewport_height * -v;
 
         let pixel_delta_u = viewport_u / image.width() as f32;
         let pixel_delta_v = viewport_v / image.height() as f32;
 
         let viewport_upper_left =
-            camera_center - Vec3::ZERO.with_z(focal_length) - viewport_u / 2. - viewport_v / 2.;
+            camera_center - config.focus_distance * w - viewport_u / 2.0 - viewport_v / 2.0;
 
         let pixel00_loc = viewport_upper_left + 0.5 * (pixel_delta_u * pixel_delta_v);
+
+        let defocus_radius =
+            config.focus_distance * (config.defocus_angle / 2.0).to_radians().tan();
+
+        let defocus_disk_u = defocus_radius * u;
+        let defocus_disk_v = defocus_radius * v;
 
         Self {
             image,
@@ -48,8 +61,11 @@ impl Camera {
             pixel_delta_u,
             pixel_delta_v,
             pixel00_loc,
-            samples_per_pixel,
-            max_depth,
+            samples_per_pixel: config.samples_per_pixel,
+            max_depth: config.max_depth,
+            defocus_angle: config.defocus_angle,
+            defocus_disk_u,
+            defocus_disk_v,
         }
     }
 
@@ -89,10 +105,21 @@ impl Camera {
             + ((i + offset.x) * self.pixel_delta_u)
             + ((j + offset.y) * self.pixel_delta_v);
 
-        let ray_origin = self.center;
+        let ray_origin = if self.defocus_angle <= 0.0 {
+            self.center
+        } else {
+            self.sample_defocus_disk()
+        };
+
         let ray_direction = pixel_sample - ray_origin;
 
         Ray::new(ray_origin, ray_direction)
+    }
+
+    fn sample_defocus_disk(&self) -> Vec3 {
+        let p = random_in_unit_disk();
+
+        self.center + (p.x * self.defocus_disk_u + p.y * self.defocus_disk_v)
     }
 
     #[must_use]
@@ -122,7 +149,7 @@ fn ray_color(ray: &Ray, depth: u32, world: &dyn Hittable) -> OpaqueColor<Srgb> {
 
 fn linear_to_gamma(x: f32) -> f32 {
     match x {
-        x if x <= 0. => 0.,
+        x if x <= 0.0 => 0.0,
         x => x.sqrt(),
     }
 }
@@ -139,4 +166,16 @@ fn add_colors(x: [f32; 3], y: [f32; 3]) -> [f32; 3] {
 
 fn multiply_colors(x: [f32; 3], y: [f32; 3]) -> [f32; 3] {
     [x[0] * y[0], x[1] * y[1], x[2] * y[2]]
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct CameraConfig {
+    pub samples_per_pixel: u32,
+    pub max_depth: u32,
+    pub defocus_angle: f32,
+    pub focus_distance: f32,
+    pub vfov: f32,
+    pub look_from: Vec3,
+    pub look_at: Vec3,
+    pub v_up: Vec3,
 }

@@ -14,5 +14,5 @@ pub trait Material: Debug {
 }
 
 fn reflect(vec: Vec3, normal: Vec3) -> Vec3 {
-    vec - 2. * vec.dot(normal) * normal
+    vec - 2.0 * vec.dot(normal) * normal
 }

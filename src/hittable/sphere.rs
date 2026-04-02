@@ -37,7 +37,7 @@ impl Hittable for Sphere {
 
         let discriminant = h.mul_add(h, -(a * c));
 
-        if discriminant < 0. {
+        if discriminant < 0.0 {
             return None;
         }
 
