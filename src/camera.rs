@@ -18,10 +18,14 @@ pub struct Camera {
 impl Camera {
     #[must_use]
     pub fn new(image: DynamicImage) -> Self {
+        let vfov: f32 = 90.0;
         let focal_length = 1.0;
-        let viewport_height = 2.0;
         let samples_per_pixel = 100;
-        let max_depth = 100;
+        let max_depth = 50;
+
+        let theta = vfov.to_radians();
+        let h = (theta / 2.0).tan();
+        let viewport_height = 2.0 * h * focal_length;
 
         let viewport_width = viewport_height * (image.width() as f32 / image.height() as f32);
 

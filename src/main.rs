@@ -15,6 +15,16 @@ fn main() {
 
     let mut world = hittable::List::new();
 
+    test_one(&mut world);
+
+    camera.render(&world);
+
+    camera.image().save("output.png").unwrap();
+}
+
+fn test_one(world: &mut hittable::List) {
+    world.clear();
+
     let mat_ground = Rc::new(material::Lambertian::new(OpaqueColor::new([0.8, 0.8, 0.0])));
     let mat_center = Rc::new(material::Lambertian::new(OpaqueColor::new([0.1, 0.2, 0.5])));
     let mat_left = Rc::new(material::Metal::new(
@@ -49,8 +59,4 @@ fn main() {
         0.5,
         mat_right,
     )));
-
-    camera.render(&world);
-
-    camera.image().save("output.png").unwrap();
 }
